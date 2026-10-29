@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meeting Action Tracker</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+  /* Layout: single column, summary band on top, one card per owner in a wrapping grid below the add form. */
+  :root {
+    --bg: #EFEDE9;
+    --surface: #FCFBF9;
+    --surface-2: #F4F2EE;
+    --line: #DED8CF;
+    --line-soft: #E8E3DB;
+    --ink: #221F1B;
+    --ink-soft: #6C6660;
+    --ink-faint: #918B83;
+    --accent: #D2600D;
+    --accent-ink: #FFFFFF;
+    --accent-wash: #F6E7D8;
+    --danger: #BD2740;
+    --danger-wash: #F7DFE3;
+    --done: #5C7A63;
+    --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --radius: 10px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141512;
+      --surface: #1C1D19;
+      --surface-2: #232420;
+      --line: #32332D;
+      --line-soft: #2A2B26;
+      --ink: #EDEAE4;
+      --ink-soft: #A09A91;
+      --ink-faint: #7D776F;
+      --accent: #F08A36;
+      --accent-ink: #1A1206;
+      --accent-wash: #3A2510;
+      --danger: #F2697F;
+      --danger-wash: #411C25;
+      --done: #8FB097;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141512;
+    --surface: #1C1D19;
+    --surface-2: #232420;
+    --line: #32332D;
+    --line-soft: #2A2B26;
+    --ink: #EDEAE4;
+    --ink-soft: #A09A91;
+    --ink-faint: #7D776F;
+    --accent: #F08A36;
+    --accent-ink: #1A1206;
+    --accent-wash: #3A2510;
+    --danger: #F2697F;
+    --danger-wash: #411C25;
+    --done: #8FB097;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.5;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: calc(28px + env(safe-area-inset-top, 0px)) calc(64px + env(safe-area-inset-bottom, 0px));
+    -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+
+  /* ---- header ---- */
+  .masthead { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; }
+  .masthead h1 { font-size: 1.95rem; font-weight: 700; letter-spacing: -0.015em; }
+  .masthead p { margin: 4px 0 0; color: var(--ink-soft); font-size: 1rem; max-width: 46ch; }
+  .rule { height: 3px; background: var(--accent); width: 46px; border-radius: 2px; margin-bottom: 12px; }
+
+  .counts { display: flex; gap: 10px; flex-wrap: wrap; }
+  .count {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 10px 16px; min-width: 94px;
+  }
+  .count b {
+    display: block; font-family: var(--font-display); font-size: 1.75rem; font-weight: 700;
+    line-height: 1.1; font-variant-numeric: tabular-nums;
+  }
+  .count span {
+    display: block; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint); margin-top: 2px;
+  }
+  .count.is-overdue { border-color: var(--danger); background: var(--danger-wash); }
+  .count.is-overdue b, .count.is-overdue span { color: var(--danger); }
+
+  /* ---- add form ---- */
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  form.add { padding: 18px; display: grid; gap: 12px; grid-template-columns: repeat(12, 1fr); }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .f-text { grid-column: span 12; }
+  .f-owner { grid-column: span 4; }
+  .f-due { grid-column: span 4; }
+  .f-meeting { grid-column: span 4; }
+  .f-submit { grid-column: span 12; display: flex; justify-content: flex-end; }
+  label {
+    font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  input[type="text"], input[type="date"] {
+    font: inherit; font-size: 1.02rem; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%;
+  }
+  input[type="date"] { font-family: var(--font-mono); font-size: 0.95rem; }
+  input::placeholder { color: var(--ink-faint); }
+  input:focus-visible, button:focus-visible, .tick:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid transparent; }
+  button[disabled] { opacity: 0.55; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent); color: var(--accent-ink); font-family: var(--font-display);
+    font-weight: 600; font-size: 1rem; padding: 11px 26px; letter-spacing: 0.01em;
+  }
+  .btn-primary:hover:not([disabled]) { filter: brightness(1.07); }
+
+  /* ---- filters + status ---- */
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip {
+    background: transparent; border: 1px solid var(--line); color: var(--ink-soft);
+    padding: 7px 15px; font-size: 0.93rem; font-weight: 600;
+  }
+  .chip:hover { border-color: var(--ink-faint); color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .link-btn {
+    background: none; border: none; color: var(--ink-faint); font-size: 0.9rem;
+    text-decoration: underline; text-underline-offset: 3px; padding: 6px 2px;
+  }
+  .link-btn:hover { color: var(--danger); }
+  .status {
+    display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-mono);
+    font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint);
+    padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  }
+  .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); flex: none; }
+  .status.live i { background: var(--done); }
+  .status.live { color: var(--done); border-color: var(--done); }
+  .status.down i { background: var(--danger); }
+  .status.down { color: var(--danger); border-color: var(--danger); }
+
+  /* ---- notices ---- */
+  .notice {
+    display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between;
+    background: var(--accent-wash); border: 1px solid var(--accent); border-radius: var(--radius);
+    padding: 12px 16px; font-size: 0.95rem;
+  }
+  .notice p { margin: 0; }
+  .notice button { background: var(--surface); border: 1px solid var(--line); color: var(--ink); padding: 7px 14px; font-size: 0.9rem; font-weight: 600; }
+  .notice.error { background: var(--danger-wash); border-color: var(--danger); color: var(--danger); }
+  .notice.error strong { font-family: var(--font-display); }
+
+  /* ---- owner cards ---- */
+  .owners { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); align-items: start; }
+  .owner { padding: 16px 16px 10px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .owner-head { display: flex; gap: 12px; align-items: center; min-width: 0; }
+  .avatar {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
+    display: grid; place-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  }
+  .owner-name { font-size: 1.15rem; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+  .owner-meta { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); letter-spacing: 0.02em; }
+  .owner-meta .late { color: var(--danger); font-weight: 500; }
+  .progress { height: 3px; background: var(--line-soft); border-radius: 2px; overflow: hidden; }
+  .progress i { display: block; height: 100%; background: var(--done); border-radius: 2px; }
+
+  ul.actions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  li.action { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line-soft); align-items: start; }
+  li.action:first-child { border-top: none; }
+  li.pending { opacity: 0.55; }
+  .tick {
+    appearance: none; -webkit-appearance: none; margin: 1px 0 0; flex: none;
+    width: 22px; height: 22px; border: 1.5px solid var(--ink-faint); border-radius: 6px;
+    background: var(--surface-2); cursor: pointer; position: relative;
+  }
+  .tick:hover { border-color: var(--accent); }
+  .tick:checked { background: var(--accent); border-color: var(--accent); }
+  .tick:checked::after {
+    content: ""; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px;
+    border: solid var(--accent-ink); border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .text { font-size: 1.02rem; line-height: 1.4; overflow-wrap: anywhere; cursor: pointer; }
+  .sub { font-size: 0.84rem; color: var(--ink-faint); overflow-wrap: anywhere; }
+  .due {
+    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+    font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.01em;
+    color: var(--ink-soft); background: var(--surface-2); border: 1px solid var(--line);
+    border-radius: 999px; padding: 2px 9px; font-variant-numeric: tabular-nums;
+  }
+  .due.overdue { color: var(--danger); background: var(--danger-wash); border-color: var(--danger); font-weight: 500; }
+  .due.soon { color: var(--accent); border-color: var(--accent); background: var(--accent-wash); }
+  li.done .text { color: var(--ink-faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+  li.done .due { opacity: 0.6; }
+  .remove {
+    background: none; border: none; color: var(--ink-faint); font-size: 1.2rem; line-height: 1;
+    padding: 2px 6px; border-radius: 6px;
+  }
+  .remove:hover { color: var(--danger); background: var(--danger-wash); }
+
+  /* ---- empty / loading ---- */
+  .empty { padding: 48px 24px; text-align: center; color: var(--ink-soft); grid-column: 1 / -1; }
+  .empty h3 { font-size: 1.2rem; color: var(--ink); margin-bottom: 6px; }
+  .empty p { margin: 0 auto; max-width: 44ch; }
+
+  footer { color: var(--ink-faint); font-size: 0.85rem; text-align: center; }
+  footer code { font-family: var(--font-mono); font-size: 0.95em; }
+
+  @media (max-width: 560px) {
+    body { font-size: 16px; }
+    .f-owner, .f-due, .f-meeting { grid-column: span 12; }
+    .f-submit { justify-content: stretch; }
+    .f-submit button { width: 100%; }
+    .masthead h1 { font-size: 1.65rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <div class="rule"></div>
+      <h1>Meeting Action Tracker</h1>
+      <p>Every action agreed in a meeting, with a name against it and a date it is due.</p>
+    </div>
+    <div class="counts" id="counts"></div>
+  </header>
+
+  <div id="error-slot"></div>
+  <div id="notice-slot"></div>
+
+  <form class="add panel" id="add-form" autocomplete="off">
+    <div class="field f-text">
+      <label for="f-text">What was agreed?</label>
+      <input type="text" id="f-text" name="text" placeholder="e.g. Send revised pricing sheet to Northgate" required>
+    </div>
+    <div class="field f-owner">
+      <label for="f-owner">Owner</label>
+      <input type="text" id="f-owner" name="owner" placeholder="Who is doing it" list="owner-list" required>
+      <datalist id="owner-list"></datalist>
+    </div>
+    <div class="field f-due">
+      <label for="f-due">Due</label>
+      <input type="date" id="f-due" name="due">
+    </div>
+    <div class="field f-meeting">
+      <label for="f-meeting">Meeting (optional)</label>
+      <input type="text" id="f-meeting" name="meeting" placeholder="e.g. Weekly commercial sync" list="meeting-list">
+      <datalist id="meeting-list"></datalist>
+    </div>
+    <div class="f-submit">
+      <button type="submit" class="btn-primary" id="submit-btn">Add action</button>
+    </div>
+  </form>
+
+  <div class="bar">
+    <div class="chips" id="filters">
+      <button type="button" class="chip" data-filter="all">All</button>
+      <button type="button" class="chip" data-filter="open">Open</button>
+      <button type="button" class="chip" data-filter="overdue">Overdue</button>
+      <button type="button" class="chip" data-filter="done">Done</button>
+    </div>
+    <div class="chips">
+      <span class="status" id="status" aria-live="polite"><i></i><span id="status-text">Connecting</span></span>
+      <button type="button" class="link-btn" id="clear-done">Clear completed</button>
+    </div>
+  </div>
+
+  <main class="owners" id="owners">
+    <div class="panel empty">
+      <h3>Loading the board</h3>
+      <p>Fetching the team's open actions from Supabase.</p>
+    </div>
+  </main>
+
+  <footer id="footer">Shared board. Everyone who opens this page sees the same actions.</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     Supabase connection. Swap these two values to point at another
+     project. The publishable key is safe in client code: access is
+     governed by the row-level security policies on meeting_actions.
+  ------------------------------------------------------------------ */
+  var SUPABASE_URL = "https://rkdnbxfqzlfxktvuiory.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_iMc4SN8CYU67gVnD2F_M4w_ZS1BPx03";
+  var TABLE = "meeting_actions";
+
+  var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false }
+  });
+
+  var FKEY = "mat.filter.v1";
+  var actions = [];
+  var pending = Object.create(null);
+  var filter = "all";
+  try {
+    var savedFilter = localStorage.getItem(FKEY);
+    if (savedFilter && ["all", "open", "overdue", "done"].indexOf(savedFilter) !== -1) filter = savedFilter;
+  } catch (e) { /* storage unavailable */ }
+
+  /* ---------- dates ---------- */
+  function iso(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function todayISO() { return iso(new Date()); }
+  function daysUntil(dueStr) {
+    var p = String(dueStr).split("-").map(Number);
+    if (p.length !== 3 || !p[0]) return null;
+    var due = new Date(p[0], p[1] - 1, p[2]);
+    var now = new Date(); now.setHours(0, 0, 0, 0);
+    return Math.round((due - now) / 86400000);
+  }
+  function shortDate(dueStr) {
+    var p = String(dueStr).split("-").map(Number);
+    if (p.length !== 3 || !p[0]) return "";
+    var d = new Date(p[0], p[1] - 1, p[2]);
+    return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  }
+  function dueLabel(dueStr) {
+    if (!dueStr) return { text: "No date set", state: "none" };
+    var n = daysUntil(dueStr);
+    if (n === null) return { text: "No date set", state: "none" };
+    if (n < -1) return { text: Math.abs(n) + " days late", state: "overdue" };
+    if (n === -1) return { text: "1 day late", state: "overdue" };
+    if (n === 0) return { text: "Due today", state: "soon" };
+    if (n === 1) return { text: "Due tomorrow", state: "soon" };
+    return { text: "Due " + shortDate(dueStr), state: "ok" };
+  }
+  function isOverdue(a) { return !a.done && !!a.due_on && daysUntil(a.due_on) < 0; }
+
+  /* ---------- dom helpers ---------- */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = text;
+    return n;
+  }
+  var $ = function (id) { return document.getElementById(id); };
+
+  function initials(name) {
+    var parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  /* ---------- status + errors ---------- */
+  function setStatus(state, text) {
+    var box = $("status");
+    box.className = "status" + (state ? " " + state : "");
+    $("status-text").textContent = text;
+  }
+
+  var errorTimer = null;
+  function showError(message, detail) {
+    var slot = $("error-slot");
+    slot.textContent = "";
+    var n = el("div", "notice error");
+    var p = el("p");
+    p.appendChild(el("strong", null, message));
+    if (detail) p.appendChild(document.createTextNode(" " + detail));
+    n.appendChild(p);
+    var b = el("button", null, "Reload the board");
+    b.type = "button";
+    b.addEventListener("click", function () { load(); });
+    n.appendChild(b);
+    slot.appendChild(n);
+    if (errorTimer) clearTimeout(errorTimer);
+    errorTimer = setTimeout(clearError, 9000);
+  }
+  function clearError() {
+    if (errorTimer) { clearTimeout(errorTimer); errorTimer = null; }
+    $("error-slot").textContent = "";
+  }
+
+  /* ---------- loading ---------- */
+  function sortRows(rows) {
+    return rows.slice().sort(function (a, b) {
+      if (!!a.done !== !!b.done) return a.done ? 1 : -1;
+      if (!a.due_on && !b.due_on) return 0;
+      if (!a.due_on) return 1;
+      if (!b.due_on) return -1;
+      return a.due_on < b.due_on ? -1 : (a.due_on > b.due_on ? 1 : 0);
+    });
+  }
+
+  function load() {
+    return db.from(TABLE).select("*").order("due_on", { ascending: true, nullsFirst: false })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        actions = res.data || [];
+        clearError();
+        renderAll();
+      })
+      .catch(function (err) {
+        showError("Could not reach Supabase.",
+          "The board below may be out of date. " + (err && err.message ? err.message : ""));
+        setStatus("down", "Offline");
+        renderAll();
+      });
+  }
+
+  function upsertLocal(row) {
+    var i = actions.findIndex(function (a) { return a.id === row.id; });
+    if (i === -1) actions.push(row); else actions[i] = row;
+  }
+  function removeLocal(id) {
+    actions = actions.filter(function (a) { return a.id !== id; });
+  }
+
+  /* ---------- realtime ---------- */
+  function subscribe() {
+    db.channel("meeting-actions-board")
+      .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, function (payload) {
+        if (payload.eventType === "DELETE") {
+          if (payload.old && payload.old.id) removeLocal(payload.old.id);
+        } else if (payload.new) {
+          upsertLocal(payload.new);
+        }
+        renderAll();
+      })
+      .subscribe(function (status) {
+        if (status === "SUBSCRIBED") setStatus("live", "Live");
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setStatus("down", "Reconnecting");
+        else if (status === "CLOSED") setStatus("", "Disconnected");
+      });
+  }
+
+  /* ---------- writes ---------- */
+  function addAction(row) {
+    var temp = Object.assign({ id: "temp-" + Date.now() }, row);
+    pending[temp.id] = true;
+    actions.push(temp);
+    renderAll();
+
+    db.from(TABLE).insert(row).select().single()
+      .then(function (res) {
+        delete pending[temp.id];
+        removeLocal(temp.id);
+        if (res.error) throw res.error;
+        upsertLocal(res.data);
+        clearError();
+        renderAll();
+      })
+      .catch(function (err) {
+        delete pending[temp.id];
+        removeLocal(temp.id);
+        renderAll();
+        showError("That action was not saved.", err && err.message ? err.message : "");
+      });
+  }
+
+  function setDone(action, done) {
+    var before = { done: action.done, done_on: action.done_on };
+    action.done = done;
+    action.done_on = done ? todayISO() : null;
+    renderAll();
+
+    db.from(TABLE).update({ done: action.done, done_on: action.done_on }).eq("id", action.id)
+      .then(function (res) {
+        if (res.error) throw res.error;
+        clearError();
+      })
+      .catch(function (err) {
+        action.done = before.done;
+        action.done_on = before.done_on;
+        renderAll();
+        showError("That tick did not save.", err && err.message ? err.message : "");
+      });
+  }
+
+  function removeAction(action) {
+    var snapshot = actions.slice();
+    removeLocal(action.id);
+    renderAll();
+
+    db.from(TABLE).delete().eq("id", action.id)
+      .then(function (res) {
+        if (res.error) throw res.error;
+        clearError();
+      })
+      .catch(function (err) {
+        actions = snapshot;
+        renderAll();
+        showError("That action was not removed.", err && err.message ? err.message : "");
+      });
+  }
+
+  function deleteWhere(column, value, failMessage) {
+    var snapshot = actions.slice();
+    actions = actions.filter(function (a) { return a[column] !== value; });
+    renderAll();
+
+    db.from(TABLE).delete().eq(column, value)
+      .then(function (res) {
+        if (res.error) throw res.error;
+        clearError();
+      })
+      .catch(function (err) {
+        actions = snapshot;
+        renderAll();
+        showError(failMessage, err && err.message ? err.message : "");
+      });
+  }
+
+  /* ---------- render ---------- */
+  function renderCounts() {
+    var open = actions.filter(function (a) { return !a.done; }).length;
+    var done = actions.length - open;
+    var overdue = actions.filter(isOverdue).length;
+    var box = $("counts");
+    box.textContent = "";
+    [["Open", open, false], ["Done", done, false], ["Overdue", overdue, overdue > 0]].forEach(function (row) {
+      var c = el("div", "count" + (row[2] ? " is-overdue" : ""));
+      c.appendChild(el("b", null, String(row[1])));
+      c.appendChild(el("span", null, row[0]));
+      box.appendChild(c);
+    });
+  }
+
+  function renderNotice() {
+    var slot = $("notice-slot");
+    slot.textContent = "";
+    if (!actions.some(function (a) { return a.is_sample; })) return;
+    var n = el("div", "notice");
+    n.appendChild(el("p", null, "These are sample actions so you can see how the board works. Clearing them removes them for everyone."));
+    var b = el("button", null, "Clear sample actions");
+    b.type = "button";
+    b.addEventListener("click", function () {
+      deleteWhere("is_sample", true, "The sample actions were not cleared.");
+      $("f-text").focus();
+    });
+    n.appendChild(b);
+    slot.appendChild(n);
+  }
+
+  function renderFilters() {
+    Array.prototype.forEach.call(document.querySelectorAll("#filters .chip"), function (btn) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.filter === filter));
+    });
+  }
+
+  function renderDatalists() {
+    var owners = {}, meetings = {};
+    actions.forEach(function (a) {
+      if (a.owner_name) owners[a.owner_name] = true;
+      if (a.meeting) meetings[a.meeting] = true;
+    });
+    [["owner-list", owners], ["meeting-list", meetings]].forEach(function (pair) {
+      var list = $(pair[0]);
+      list.textContent = "";
+      Object.keys(pair[1]).sort().forEach(function (v) {
+        var o = document.createElement("option");
+        o.value = v;
+        list.appendChild(o);
+      });
+    });
+  }
+
+  function matchesFilter(a) {
+    if (filter === "open") return !a.done;
+    if (filter === "done") return !!a.done;
+    if (filter === "overdue") return isOverdue(a);
+    return true;
+  }
+
+  function buildAction(a) {
+    var li = el("li", "action" + (a.done ? " done" : "") + (pending[a.id] ? " pending" : ""));
+
+    var box = el("input", "tick");
+    box.type = "checkbox";
+    box.checked = !!a.done;
+    box.id = "tick-" + a.id;
+    box.disabled = !!pending[a.id];
+    box.setAttribute("aria-label", (a.done ? "Mark as not done: " : "Mark as done: ") + a.title);
+    box.addEventListener("change", function () { setDone(a, box.checked); });
+    li.appendChild(box);
+
+    var body = el("div", "body");
+    var label = el("label", "text", a.title);
+    label.setAttribute("for", box.id);
+    body.appendChild(label);
+
+    var d = dueLabel(a.due_on);
+    var pillClass = "due";
+    if (!a.done) {
+      if (d.state === "overdue") pillClass += " overdue";
+      else if (d.state === "soon") pillClass += " soon";
+    }
+    body.appendChild(el("span", pillClass, d.text));
+
+    var bits = [];
+    if (a.meeting) bits.push(a.meeting);
+    if (a.agreed_on) bits.push("agreed " + shortDate(a.agreed_on));
+    if (bits.length) body.appendChild(el("div", "sub", bits.join(" · ")));
+    li.appendChild(body);
+
+    var rm = el("button", "remove", "×");
+    rm.type = "button";
+    rm.title = "Remove this action";
+    rm.disabled = !!pending[a.id];
+    rm.setAttribute("aria-label", "Remove action: " + a.title);
+    rm.addEventListener("click", function () { removeAction(a); });
+    li.appendChild(rm);
+
+    return li;
+  }
+
+  function renderOwners() {
+    var host = $("owners");
+    host.textContent = "";
+
+    var visible = actions.filter(matchesFilter);
+    if (!visible.length) {
+      var box = el("div", "panel empty");
+      if (!actions.length) {
+        box.appendChild(el("h3", null, "No actions on the board"));
+        box.appendChild(el("p", null, "Add the first thing your team agreed to, give it an owner and a date, and it stops being forgotten."));
+      } else {
+        box.appendChild(el("h3", null, "Nothing in this view"));
+        box.appendChild(el("p", null, filter === "overdue"
+          ? "No action has slipped past its due date. Switch to All to see the rest of the board."
+          : "Try another filter to see the rest of the board."));
+      }
+      host.appendChild(box);
+      return;
+    }
+
+    var groups = {};
+    visible.forEach(function (a) {
+      var k = a.owner_name || "Unassigned";
+      (groups[k] = groups[k] || []).push(a);
+    });
+
+    var names = Object.keys(groups).sort(function (x, y) {
+      var ox = groups[x].filter(isOverdue).length, oy = groups[y].filter(isOverdue).length;
+      if (ox !== oy) return oy - ox;
+      var px = groups[x].filter(function (a) { return !a.done; }).length;
+      var py = groups[y].filter(function (a) { return !a.done; }).length;
+      if (px !== py) return py - px;
+      return x.localeCompare(y);
+    });
+
+    names.forEach(function (name) {
+      var list = sortRows(groups[name]);
+      var all = actions.filter(function (a) { return (a.owner_name || "Unassigned") === name; });
+      var open = all.filter(function (a) { return !a.done; }).length;
+      var late = all.filter(isOverdue).length;
+      var doneCount = all.length - open;
+
+      var card = el("section", "panel owner");
+
+      var head = el("div", "owner-head");
+      head.appendChild(el("div", "avatar", initials(name)));
+      var who = el("div");
+      who.style.minWidth = "0";
+      who.appendChild(el("h2", "owner-name", name));
+      var meta = el("div", "owner-meta");
+      meta.appendChild(document.createTextNode(open + " open · " + doneCount + " done"));
+      if (late > 0) {
+        meta.appendChild(document.createTextNode(" · "));
+        meta.appendChild(el("span", "late", late + " overdue"));
+      }
+      who.appendChild(meta);
+      head.appendChild(who);
+      card.appendChild(head);
+
+      var track = el("div", "progress");
+      var fill = el("i");
+      fill.style.width = (all.length ? Math.round((doneCount / all.length) * 100) : 0) + "%";
+      track.appendChild(fill);
+      card.appendChild(track);
+
+      var ul = el("ul", "actions");
+      list.forEach(function (a) { ul.appendChild(buildAction(a)); });
+      card.appendChild(ul);
+
+      host.appendChild(card);
+    });
+  }
+
+  function renderAll() {
+    var focusId = document.activeElement ? document.activeElement.id : null;
+    renderCounts();
+    renderNotice();
+    renderFilters();
+    renderDatalists();
+    renderOwners();
+    if (focusId) {
+      var again = document.getElementById(focusId);
+      if (again && typeof again.focus === "function") again.focus();
+    }
+  }
+
+  /* ---------- events ---------- */
+  $("add-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = $("f-text").value.trim();
+    var owner = $("f-owner").value.trim();
+    if (!title || !owner) return;
+    addAction({
+      title: title,
+      owner_name: owner,
+      due_on: $("f-due").value || null,
+      meeting: $("f-meeting").value.trim() || null,
+      done: false,
+      agreed_on: todayISO(),
+      is_sample: false
+    });
+    $("f-text").value = "";
+    $("f-due").value = "";
+    $("f-text").focus();
+  });
+
+  $("filters").addEventListener("click", function (e) {
+    var btn = e.target.closest(".chip");
+    if (!btn) return;
+    filter = btn.dataset.filter;
+    try { localStorage.setItem(FKEY, filter); } catch (err) { /* storage unavailable */ }
+    renderAll();
+  });
+
+  $("clear-done").addEventListener("click", function () {
+    var btn = $("clear-done");
+    if (btn.dataset.armed !== "1") {
+      if (!actions.some(function (a) { return a.done; })) return;
+      btn.dataset.armed = "1";
+      btn.textContent = "Remove for everyone? Click again";
+      setTimeout(function () {
+        if (btn.dataset.armed === "1") { btn.dataset.armed = "0"; btn.textContent = "Clear completed"; }
+      }, 4000);
+      return;
+    }
+    btn.dataset.armed = "0";
+    btn.textContent = "Clear completed";
+    deleteWhere("done", true, "The completed actions were not removed.");
+  });
+
+  /* refresh dates when the page has been left open past midnight */
+  var lastDay = todayISO();
+  setInterval(function () {
+    var now = todayISO();
+    if (now !== lastDay) { lastDay = now; renderAll(); }
+  }, 60000);
+
+  window.addEventListener("online", function () { load(); });
+
+  load().then(subscribe);
+})();
+</script>
+</body>
+</html>
