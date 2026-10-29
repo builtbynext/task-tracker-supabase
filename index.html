@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap">
 <style>
-  /* Layout: single column, summary band on top, one card per owner in a wrapping grid below the add form. */
+  /* Layout: sign-in card, then a single column — summary band on top, one card per owner in a wrapping grid. */
   :root {
     --bg: #EFEDE9;
     --surface: #FCFBF9;
@@ -84,12 +84,30 @@
   .wrap { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 
   h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+  .rule { height: 3px; background: var(--accent); width: 46px; border-radius: 2px; margin-bottom: 12px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+
+  /* ---- sign in ---- */
+  .signin-wrap { max-width: 400px; margin: 8vh auto 0; display: flex; flex-direction: column; gap: 18px; }
+  .signin { padding: 26px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .signin h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+  .signin .lede { margin: 4px 0 0; color: var(--ink-soft); font-size: 0.97rem; }
+  .signin form { display: flex; flex-direction: column; gap: 14px; }
+  .signin-error {
+    background: var(--danger-wash); border: 1px solid var(--danger); color: var(--danger);
+    border-radius: 8px; padding: 10px 13px; font-size: 0.93rem;
+  }
 
   /* ---- header ---- */
   .masthead { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; }
   .masthead h1 { font-size: 1.95rem; font-weight: 700; letter-spacing: -0.015em; }
   .masthead p { margin: 4px 0 0; color: var(--ink-soft); font-size: 1rem; max-width: 46ch; }
-  .rule { height: 3px; background: var(--accent); width: 46px; border-radius: 2px; margin-bottom: 12px; }
+  .masthead-right { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+
+  .whoami { display: flex; align-items: center; gap: 10px; }
+  .whoami .avatar { width: 30px; height: 30px; font-size: 0.78rem; }
+  .whoami-name { font-size: 0.95rem; font-weight: 600; }
+  .whoami-user { font-family: var(--font-mono); font-size: 0.72rem; color: var(--ink-faint); }
 
   .counts { display: flex; gap: 10px; flex-wrap: wrap; }
   .count {
@@ -108,7 +126,6 @@
   .count.is-overdue b, .count.is-overdue span { color: var(--danger); }
 
   /* ---- add form ---- */
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
   form.add { padding: 18px; display: grid; gap: 12px; grid-template-columns: repeat(12, 1fr); }
   .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
   .f-text { grid-column: span 12; }
@@ -120,7 +137,7 @@
     font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.1em;
     text-transform: uppercase; color: var(--ink-faint);
   }
-  input[type="text"], input[type="date"] {
+  input[type="text"], input[type="date"], input[type="password"] {
     font: inherit; font-size: 1.02rem; color: var(--ink); background: var(--surface-2);
     border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%;
   }
@@ -136,6 +153,11 @@
     font-weight: 600; font-size: 1rem; padding: 11px 26px; letter-spacing: 0.01em;
   }
   .btn-primary:hover:not([disabled]) { filter: brightness(1.07); }
+  .btn-quiet {
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft);
+    padding: 7px 14px; font-size: 0.88rem; font-weight: 600;
+  }
+  .btn-quiet:hover { color: var(--ink); border-color: var(--ink-faint); }
 
   /* ---- filters + status ---- */
   .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
@@ -182,6 +204,7 @@
     background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-soft);
     display: grid; place-items: center; font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
   }
+  .avatar.is-me { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .owner-name { font-size: 1.15rem; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
   .owner-meta { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); letter-spacing: 0.02em; }
   .owner-meta .late { color: var(--danger); font-weight: 500; }
@@ -228,7 +251,6 @@
   .empty p { margin: 0 auto; max-width: 44ch; }
 
   footer { color: var(--ink-faint); font-size: 0.85rem; text-align: center; }
-  footer code { font-family: var(--font-mono); font-size: 0.95em; }
 
   @media (max-width: 560px) {
     body { font-size: 16px; }
@@ -236,20 +258,56 @@
     .f-submit { justify-content: stretch; }
     .f-submit button { width: 100%; }
     .masthead h1 { font-size: 1.65rem; }
+    .masthead-right { align-items: flex-start; width: 100%; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
 
-<div class="wrap">
+<!-- ============================ SIGN IN ============================ -->
+<div class="signin-wrap" id="signin-view" hidden>
+  <section class="panel signin">
+    <div>
+      <div class="rule"></div>
+      <h1>Meeting Action Tracker</h1>
+      <p class="lede">Sign in to see what your team agreed to.</p>
+    </div>
+    <div class="signin-error" id="signin-error" hidden></div>
+    <form id="signin-form" autocomplete="on">
+      <div class="field">
+        <label for="s-user">Username</label>
+        <input type="text" id="s-user" name="username" autocomplete="username"
+               autocapitalize="none" spellcheck="false" placeholder="priya" required>
+      </div>
+      <div class="field">
+        <label for="s-pass">Password</label>
+        <input type="password" id="s-pass" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary" id="signin-btn">Sign in</button>
+    </form>
+  </section>
+</div>
+
+<!-- ============================= BOARD ============================= -->
+<div class="wrap" id="app-view" hidden>
   <header class="masthead">
     <div>
       <div class="rule"></div>
       <h1>Meeting Action Tracker</h1>
       <p>Every action agreed in a meeting, with a name against it and a date it is due.</p>
     </div>
-    <div class="counts" id="counts"></div>
+    <div class="masthead-right">
+      <div class="whoami">
+        <div class="avatar is-me" id="me-avatar"></div>
+        <div>
+          <div class="whoami-name" id="me-name"></div>
+          <div class="whoami-user" id="me-user"></div>
+        </div>
+        <button type="button" class="btn-quiet" id="signout-btn">Sign out</button>
+      </div>
+      <div class="counts" id="counts"></div>
+    </div>
   </header>
 
   <div id="error-slot"></div>
@@ -275,7 +333,7 @@
       <datalist id="meeting-list"></datalist>
     </div>
     <div class="f-submit">
-      <button type="submit" class="btn-primary" id="submit-btn">Add action</button>
+      <button type="submit" class="btn-primary">Add action</button>
     </div>
   </form>
 
@@ -284,6 +342,7 @@
       <button type="button" class="chip" data-filter="all">All</button>
       <button type="button" class="chip" data-filter="open">Open</button>
       <button type="button" class="chip" data-filter="overdue">Overdue</button>
+      <button type="button" class="chip" data-filter="mine">Mine</button>
       <button type="button" class="chip" data-filter="done">Done</button>
     </div>
     <div class="chips">
@@ -295,11 +354,11 @@
   <main class="owners" id="owners">
     <div class="panel empty">
       <h3>Loading the board</h3>
-      <p>Fetching the team's open actions from Supabase.</p>
+      <p>Fetching the team's open actions.</p>
     </div>
   </main>
 
-  <footer id="footer">Shared board. Everyone who opens this page sees the same actions.</footer>
+  <footer>Shared board. Everyone signed in sees the same actions.</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -308,25 +367,32 @@
   "use strict";
 
   /* ------------------------------------------------------------------
-     Supabase connection. Swap these two values to point at another
-     project. The publishable key is safe in client code: access is
-     governed by the row-level security policies on meeting_actions.
+     Supabase connection.
+
+     Sign-in takes a username, not an email. Supabase Auth is an
+     email/password system, so the app appends EMAIL_DOMAIN to whatever
+     the user types: "priya" becomes "priya@example.com". Change the
+     domain here if you provision accounts under a different one.
   ------------------------------------------------------------------ */
   var SUPABASE_URL = "https://rkdnbxfqzlfxktvuiory.supabase.co";
   var SUPABASE_KEY = "sb_publishable_iMc4SN8CYU67gVnD2F_M4w_ZS1BPx03";
+  var EMAIL_DOMAIN = "example.com";
   var TABLE = "meeting_actions";
 
   var db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: false }
+    auth: { persistSession: true, autoRefreshToken: true }
   });
 
   var FKEY = "mat.filter.v1";
   var actions = [];
+  var profiles = [];
+  var me = null;
+  var channel = null;
   var pending = Object.create(null);
   var filter = "all";
   try {
     var savedFilter = localStorage.getItem(FKEY);
-    if (savedFilter && ["all", "open", "overdue", "done"].indexOf(savedFilter) !== -1) filter = savedFilter;
+    if (["all", "open", "overdue", "mine", "done"].indexOf(savedFilter) !== -1) filter = savedFilter;
   } catch (e) { /* storage unavailable */ }
 
   /* ---------- dates ---------- */
@@ -377,8 +443,7 @@
 
   /* ---------- status + errors ---------- */
   function setStatus(state, text) {
-    var box = $("status");
-    box.className = "status" + (state ? " " + state : "");
+    $("status").className = "status" + (state ? " " + state : "");
     $("status-text").textContent = text;
   }
 
@@ -393,7 +458,7 @@
     n.appendChild(p);
     var b = el("button", null, "Reload the board");
     b.type = "button";
-    b.addEventListener("click", function () { load(); });
+    b.addEventListener("click", function () { loadActions(); });
     n.appendChild(b);
     slot.appendChild(n);
     if (errorTimer) clearTimeout(errorTimer);
@@ -404,7 +469,112 @@
     $("error-slot").textContent = "";
   }
 
-  /* ---------- loading ---------- */
+  /* ================================================================
+     AUTH
+  ================================================================ */
+  function showSignIn(message) {
+    $("app-view").hidden = true;
+    $("signin-view").hidden = false;
+    var box = $("signin-error");
+    if (message) { box.textContent = message; box.hidden = false; }
+    else { box.textContent = ""; box.hidden = true; }
+    $("s-user").focus();
+  }
+
+  function showBoard() {
+    $("signin-view").hidden = true;
+    $("app-view").hidden = false;
+  }
+
+  $("signin-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var username = $("s-user").value.trim().toLowerCase();
+    var password = $("s-pass").value;
+    if (!username || !password) return;
+
+    var btn = $("signin-btn");
+    btn.disabled = true;
+    btn.textContent = "Signing in…";
+    $("signin-error").hidden = true;
+
+    db.auth.signInWithPassword({ email: username + "@" + EMAIL_DOMAIN, password: password })
+      .then(function (res) {
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+        if (res.error) {
+          var msg = /invalid login credentials/i.test(res.error.message || "")
+            ? "That username or password is not right."
+            : res.error.message;
+          showSignIn(msg);
+          $("s-pass").value = "";
+          $("s-pass").focus();
+          return;
+        }
+        $("s-pass").value = "";
+        /* onAuthStateChange starts the board */
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+        showSignIn("Could not reach the server. " + (err && err.message ? err.message : ""));
+      });
+  });
+
+  $("signout-btn").addEventListener("click", function () {
+    db.auth.signOut();
+  });
+
+  function teardown() {
+    if (channel) { db.removeChannel(channel); channel = null; }
+    actions = [];
+    profiles = [];
+    me = null;
+    setStatus("", "Connecting");
+    clearError();
+  }
+
+  db.auth.onAuthStateChange(function (event, session) {
+    if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+      if (session) start(session);
+      else showSignIn();
+    } else if (event === "SIGNED_OUT") {
+      teardown();
+      showSignIn();
+    } else if (event === "TOKEN_REFRESHED" && session && channel) {
+      db.realtime.setAuth(session.access_token);
+    }
+  });
+
+  var started = false;
+  function start(session) {
+    showBoard();
+    if (started) return;
+    started = true;
+
+    db.realtime.setAuth(session.access_token);
+
+    loadProfiles(session)
+      .then(loadActions)
+      .then(subscribe);
+  }
+
+  /* ---------- profiles ---------- */
+  function loadProfiles(session) {
+    return db.from("profiles").select("id, username, display_name")
+      .then(function (res) {
+        profiles = res.error ? [] : (res.data || []);
+        me = profiles.filter(function (p) { return p.id === session.user.id; })[0] || {
+          id: session.user.id,
+          username: String(session.user.email || "").split("@")[0],
+          display_name: String(session.user.email || "").split("@")[0]
+        };
+        $("me-avatar").textContent = initials(me.display_name);
+        $("me-name").textContent = me.display_name;
+        $("me-user").textContent = "@" + me.username;
+      });
+  }
+
+  /* ---------- actions ---------- */
   function sortRows(rows) {
     return rows.slice().sort(function (a, b) {
       if (!!a.done !== !!b.done) return a.done ? 1 : -1;
@@ -415,7 +585,7 @@
     });
   }
 
-  function load() {
+  function loadActions() {
     return db.from(TABLE).select("*").order("due_on", { ascending: true, nullsFirst: false })
       .then(function (res) {
         if (res.error) throw res.error;
@@ -439,9 +609,8 @@
     actions = actions.filter(function (a) { return a.id !== id; });
   }
 
-  /* ---------- realtime ---------- */
   function subscribe() {
-    db.channel("meeting-actions-board")
+    channel = db.channel("meeting-actions-board")
       .on("postgres_changes", { event: "*", schema: "public", table: TABLE }, function (payload) {
         if (payload.eventType === "DELETE") {
           if (payload.old && payload.old.id) removeLocal(payload.old.id);
@@ -535,6 +704,12 @@
   }
 
   /* ---------- render ---------- */
+  function isMine(a) {
+    if (!me) return false;
+    var owner = String(a.owner_name || "").toLowerCase();
+    return owner === String(me.display_name).toLowerCase() || owner === String(me.username).toLowerCase();
+  }
+
   function renderCounts() {
     var open = actions.filter(function (a) { return !a.done; }).length;
     var done = actions.length - open;
@@ -573,6 +748,7 @@
 
   function renderDatalists() {
     var owners = {}, meetings = {};
+    profiles.forEach(function (p) { owners[p.display_name] = true; });
     actions.forEach(function (a) {
       if (a.owner_name) owners[a.owner_name] = true;
       if (a.meeting) meetings[a.meeting] = true;
@@ -592,6 +768,7 @@
     if (filter === "open") return !a.done;
     if (filter === "done") return !!a.done;
     if (filter === "overdue") return isOverdue(a);
+    if (filter === "mine") return isMine(a);
     return true;
   }
 
@@ -649,8 +826,9 @@
         box.appendChild(el("p", null, "Add the first thing your team agreed to, give it an owner and a date, and it stops being forgotten."));
       } else {
         box.appendChild(el("h3", null, "Nothing in this view"));
-        box.appendChild(el("p", null, filter === "overdue"
-          ? "No action has slipped past its due date. Switch to All to see the rest of the board."
+        box.appendChild(el("p", null,
+          filter === "overdue" ? "No action has slipped past its due date. Switch to All to see the rest of the board."
+          : filter === "mine" ? "Nothing on the board is assigned to you. Switch to All to see everyone else's."
           : "Try another filter to see the rest of the board."));
       }
       host.appendChild(box);
@@ -678,14 +856,15 @@
       var open = all.filter(function (a) { return !a.done; }).length;
       var late = all.filter(isOverdue).length;
       var doneCount = all.length - open;
+      var mine = me && (name.toLowerCase() === String(me.display_name).toLowerCase());
 
       var card = el("section", "panel owner");
 
       var head = el("div", "owner-head");
-      head.appendChild(el("div", "avatar", initials(name)));
+      head.appendChild(el("div", "avatar" + (mine ? " is-me" : ""), initials(name)));
       var who = el("div");
       who.style.minWidth = "0";
-      who.appendChild(el("h2", "owner-name", name));
+      who.appendChild(el("h2", "owner-name", mine ? name + " (you)" : name));
       var meta = el("div", "owner-meta");
       meta.appendChild(document.createTextNode(open + " open · " + doneCount + " done"));
       if (late > 0) {
@@ -774,9 +953,13 @@
     if (now !== lastDay) { lastDay = now; renderAll(); }
   }, 60000);
 
-  window.addEventListener("online", function () { load(); });
+  window.addEventListener("online", function () { if (me) loadActions(); });
 
-  load().then(subscribe);
+  /* First paint: decide between sign-in and board. */
+  db.auth.getSession().then(function (res) {
+    if (res.data && res.data.session) start(res.data.session);
+    else showSignIn();
+  }).catch(function () { showSignIn(); });
 })();
 </script>
 </body>

@@ -2,6 +2,10 @@
 -- Run against a Supabase project (SQL Editor, or `supabase db execute`).
 -- Safe to re-run: every statement is idempotent.
 
+-- ============================================================
+-- Actions
+-- ============================================================
+
 create table if not exists public.meeting_actions (
   id uuid primary key default gen_random_uuid(),
   title text not null check (length(btrim(title)) > 0),
@@ -36,29 +40,6 @@ create trigger meeting_actions_touch
   before update on public.meeting_actions
   for each row execute function public.touch_meeting_actions();
 
--- Row-level security.
---
--- WARNING: these policies give anyone holding the publishable key full
--- read/write/delete access to every row. That is deliberate for a small
--- trusted team on a private URL. If this board goes anywhere public,
--- replace the `to anon` grants below with policies scoped to
--- `authenticated` and wire up Supabase Auth in index.html.
-alter table public.meeting_actions enable row level security;
-
-drop policy if exists "anon read actions" on public.meeting_actions;
-drop policy if exists "anon insert actions" on public.meeting_actions;
-drop policy if exists "anon update actions" on public.meeting_actions;
-drop policy if exists "anon delete actions" on public.meeting_actions;
-
-create policy "anon read actions" on public.meeting_actions
-  for select to anon, authenticated using (true);
-create policy "anon insert actions" on public.meeting_actions
-  for insert to anon, authenticated with check (true);
-create policy "anon update actions" on public.meeting_actions
-  for update to anon, authenticated using (true) with check (true);
-create policy "anon delete actions" on public.meeting_actions
-  for delete to anon, authenticated using (true);
-
 -- Realtime: `replica identity full` so DELETE events carry the old row.
 alter table public.meeting_actions replica identity full;
 
@@ -74,3 +55,79 @@ begin
   end if;
 end
 $$;
+
+-- ============================================================
+-- Profiles — the app's view of who a user is
+-- ============================================================
+-- auth.users holds the credentials; it is managed by Supabase and the
+-- app never reads it directly. profiles carries the username and
+-- display name, and is what the board joins against.
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  username text not null unique check (username ~ '^[a-z0-9_]{2,32}$'),
+  display_name text not null,
+  created_at timestamptz not null default now()
+);
+
+-- Every new auth user automatically gets a profile, built from the
+-- username / display_name carried in raw_user_meta_data.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.profiles (id, username, display_name)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data ->> 'display_name', initcap(split_part(new.email, '@', 1)))
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+-- ============================================================
+-- Row-level security
+-- ============================================================
+-- Nothing is readable without a session. Any signed-in user can read
+-- and edit every action — this is a shared team board, not per-user
+-- data — but anonymous callers holding only the publishable key get
+-- nothing at all.
+
+alter table public.meeting_actions enable row level security;
+alter table public.profiles enable row level security;
+
+drop policy if exists "anon read actions" on public.meeting_actions;
+drop policy if exists "anon insert actions" on public.meeting_actions;
+drop policy if exists "anon update actions" on public.meeting_actions;
+drop policy if exists "anon delete actions" on public.meeting_actions;
+drop policy if exists "signed in read actions" on public.meeting_actions;
+drop policy if exists "signed in insert actions" on public.meeting_actions;
+drop policy if exists "signed in update actions" on public.meeting_actions;
+drop policy if exists "signed in delete actions" on public.meeting_actions;
+
+create policy "signed in read actions" on public.meeting_actions
+  for select to authenticated using (true);
+create policy "signed in insert actions" on public.meeting_actions
+  for insert to authenticated with check (true);
+create policy "signed in update actions" on public.meeting_actions
+  for update to authenticated using (true) with check (true);
+create policy "signed in delete actions" on public.meeting_actions
+  for delete to authenticated using (true);
+
+drop policy if exists "profiles readable by signed in users" on public.profiles;
+drop policy if exists "users update own profile" on public.profiles;
+
+create policy "profiles readable by signed in users" on public.profiles
+  for select to authenticated using (true);
+create policy "users update own profile" on public.profiles
+  for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
